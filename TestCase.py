@@ -5,6 +5,7 @@ import pandas as pd
 
 from ProfileController import ProfileController
 from TrapezoidalProfile import TrapezoidalProfile
+from PUMA560 import PUMA560
     
 class TestCase:
 
@@ -497,7 +498,69 @@ class TestCase:
 
         return True
 
+    def case110(self):
+
+        proCtr = ProfileController()
+        puma560 = PUMA560()
+
+        curPose = np.array([1.5708, -3.14159, 1.5708, 0, 0, 0])
+        dof = 6
+        proCtr.setCurrentPose(curPose,dof)
+
+        targetPose = np.array([0.693782, -2.36364, 2.38406, 2.1103, -1.07417, -1.14081])
+        targetVelsDeg = np.array([300,300,375,375,375,600])
+        targetVelsRad = targetVelsDeg * math.pi / 180
+        targetAccsDeg = np.array([1000,1000,1500,1500,1500, 1000])
+        targetAccsRad = np.array(targetAccsDeg * math.pi / 180)
+
+        proCtr.setCmd(targetPose, targetVelsRad, targetAccsRad, targetAccsRad)
+
+        targetPose = np.array([0.456344, -2.54862, 2.16375, 1.78586, -0.350709, -1.29741])
+        proCtr.setCmd(targetPose, targetVelsRad, targetAccsRad, targetAccsRad)
+
+        targetPose = np.array([-0.449, -0.890494, 2.60354, 2.06081, -0.0605401, -0.624552])
+        proCtr.setCmd(targetPose, targetVelsRad, targetAccsRad, targetAccsRad)
+
+        cycleTime = 0.01
+
+        initial_pose = proCtr.getCmdPose()
+        pretcp = puma560.forward_kinematics(initial_pose)
+        pretcv = pretcp - pretcp
+
+        filename = "./testCase/case110.csv"
+        #fw = open(filename, 'w')
+        df = pd.read_csv(filename, header=None)
+
+        idx = 0
+        while proCtr.execCmd(cycleTime):
+            cmdPose = proCtr.getCmdPose()
+            cmdVels = proCtr.getCmdVels()
+            tcp = puma560.forward_kinematics(cmdPose)
+            tcv = (tcp - pretcp) / cycleTime
+            tca = (tcv - pretcv) / cycleTime
+            pretcp = tcp
+            pretcv = tcv
+
+            for axis in range(3):
+                if abs(float(df.iloc[idx][axis]) - tcp[axis]) > 0.00001:
+                    return False 
+            idx += 1
+
+        # last cycle
+        cmdPose = proCtr.getCmdPose()
+        cmdVels = proCtr.getCmdVels()
+        tcp = puma560.forward_kinematics(cmdPose)
+        tcv = (tcp - pretcp) / cycleTime
+        tca = (tcv - pretcv) / cycleTime
+        pretcp = tcp
+        pretcv = tcv
+    
+        return True
+
+
 tc = TestCase()
+
+
 testCase = 0
 
 testCase += 1
@@ -599,6 +662,13 @@ else:
 
 testCase += 1
 if tc.case109():
+    print("PATH", testCase)
+else:
+    print("ERROR", testCase)
+
+
+testCase += 1
+if tc.case110():
     print("PATH", testCase)
 else:
     print("ERROR", testCase)

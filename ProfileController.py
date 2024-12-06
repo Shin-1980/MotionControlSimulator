@@ -24,11 +24,13 @@ class ProfileController:
         self.curAccs = []
         self.execProf = None
         self.imposedProf = None
+        self.dof = 0
 
         self.basePose = []
         self.totalDis = []
 
     def setCurrentPose(self, curPose: list, dof: int):
+        self.dof = dof
         self.curPose = curPose
         self.curVels = [0 for _ in range(dof)]
         self.prePose = curPose
@@ -143,6 +145,8 @@ class ProfileController:
 
         if self.execProf != None and self.execProf.isDone():
             if self.imposedProf == None:
+                self.curVels = [0 for _ in range(self.dof)]
+                self.preVel = [0 for _ in range(self.dof)]
                 self.curPose = self.execProf.profInfo.getTargetPose()
                 self.execProf = None
                 return False
