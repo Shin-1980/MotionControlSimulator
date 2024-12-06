@@ -2,6 +2,7 @@ import math
 import numpy as np
 import csv
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from ProfileController import ProfileController
 from TrapezoidalProfile import TrapezoidalProfile
@@ -524,7 +525,7 @@ class TestCase:
         cycleTime = 0.01
 
         initial_pose = proCtr.getCmdPose()
-        pretcp = puma560.forward_kinematics(initial_pose)
+        pretcp = puma560.compute_TCP(initial_pose)
         pretcv = pretcp - pretcp
 
         filename = "./testCase/case110.csv"
@@ -535,7 +536,7 @@ class TestCase:
         while proCtr.execCmd(cycleTime):
             cmdPose = proCtr.getCmdPose()
             cmdVels = proCtr.getCmdVels()
-            tcp = puma560.forward_kinematics(cmdPose)
+            tcp = puma560.compute_TCP(cmdPose)
             tcv = (tcp - pretcp) / cycleTime
             tca = (tcv - pretcv) / cycleTime
             pretcp = tcp
@@ -549,7 +550,7 @@ class TestCase:
         # last cycle
         cmdPose = proCtr.getCmdPose()
         cmdVels = proCtr.getCmdVels()
-        tcp = puma560.forward_kinematics(cmdPose)
+        tcp = puma560.compute_TCP(cmdPose)
         tcv = (tcp - pretcp) / cycleTime
         tca = (tcv - pretcv) / cycleTime
         pretcp = tcp
@@ -557,10 +558,63 @@ class TestCase:
     
         return True
 
+    def case111(self):
+
+        proCtr = ProfileController()
+        puma560 = PUMA560()
+
+        curPose = np.array([1.5708, -3.14159, 1.5708, 0, 0, 0])
+        dof = 6
+        proCtr.setCurrentPose(curPose,dof)
+
+        targetPose = np.array([0.693782, -2.36364, 2.38406, 2.1103, -1.07417, -1.14081])
+        targetVelsDeg = np.array([300,300,375,375,375,600])
+        targetVelsRad = targetVelsDeg * math.pi / 180
+        targetAccsDeg = np.array([1000,1000,1500,1500,1500, 1000])
+        targetAccsRad = np.array(targetAccsDeg * math.pi / 180)
+
+        proCtr.setCmd(targetPose, targetVelsRad, targetAccsRad, targetAccsRad)
+
+        targetPose = np.array([0.456344, -2.54862, 2.16375, 1.78586, -0.350709, -1.29741])
+        proCtr.setCmd(targetPose, targetVelsRad, targetAccsRad, targetAccsRad)
+
+        targetPose = np.array([-0.449, -0.890494, 2.60354, 2.06081, -0.0605401, -0.624552])
+        proCtr.setCmd(targetPose, targetVelsRad, targetAccsRad, targetAccsRad)
+
+        cycleTime = 0.01
+        
+        filenamep = "./testCase/case111_pose.csv"
+        filenamev = "./testCase/case111_vels.csv"
+        filenamea = "./testCase/case111_accs.csv"
+        filenamet = "./testCase/case111_torq.csv"
+
+        dfp = pd.read_csv(filenamep, header=None)
+        dfv = pd.read_csv(filenamev, header=None)
+        dfa = pd.read_csv(filenamea, header=None)
+        dft = pd.read_csv(filenamet, header=None)
+
+        idx = 0
+        while proCtr.execCmd(cycleTime):
+            cmdPose = proCtr.getCmdPose()
+            cmdVels = proCtr.getCmdVels()
+            cmdAccs = proCtr.getCmdAccs()
+            torque = puma560.compute_torque(cmdPose, cmdVels, cmdAccs)
+
+            for axis in range(dof):
+                if abs(float(dfp.iloc[idx][axis]) - cmdPose[axis]) > 0.00001:
+                    return False 
+                if abs(float(dfv.iloc[idx][axis]) - cmdVels[axis]) > 0.00001:
+                    return False 
+                if abs(float(dfa.iloc[idx][axis]) - cmdAccs[axis]) > 0.00001:
+                    return False 
+                if abs(float(dft.iloc[idx][axis]) - torque[axis]) > 0.00001:
+                    return False 
+
+            idx += 1
+
+        return True
 
 tc = TestCase()
-
-
 testCase = 0
 
 testCase += 1
@@ -666,9 +720,14 @@ if tc.case109():
 else:
     print("ERROR", testCase)
 
-
 testCase += 1
 if tc.case110():
+    print("PATH", testCase)
+else:
+    print("ERROR", testCase)
+
+testCase += 1
+if tc.case111():
     print("PATH", testCase)
 else:
     print("ERROR", testCase)
